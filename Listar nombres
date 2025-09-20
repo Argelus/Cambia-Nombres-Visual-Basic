@@ -1,0 +1,68 @@
+Sub ListarNombresArchivos()
+    Dim objFSO As Object
+    Dim objFolder As Object
+    Dim objFile As Object
+    Dim ws As Worksheet
+    Dim i As Long
+    Dim nuevaRuta As String
+    Dim fileName As String
+    
+    On Error GoTo ErrorHandler
+    
+    ' Seleccionar una carpeta usando el cuadro de diálogo
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .Title = "Selecciona una carpeta"
+        .AllowMultiSelect = False
+        If .Show = -1 Then
+            nuevaRuta = .SelectedItems(1)
+            ' Asegurarse de que la ruta no termine con una barra invertida adicional
+            If Right(nuevaRuta, 1) = "\" Then nuevaRuta = Left(nuevaRuta, Len(nuevaRuta) - 1)
+        Else
+            Exit Sub
+        End If
+    End With
+    
+    ' Inicializar el objeto FileSystemObject
+    Set objFSO = CreateObject("Scripting.FileSystemObject")
+    Set objFolder = objFSO.GetFolder(nuevaRuta)
+    
+    ' Referenciar la hoja activa
+    Set ws = ThisWorkbook.ActiveSheet
+    
+    ' Escribir el nombre de la carpeta seleccionada en la celda H5
+    ws.Range("H5").Value = objFolder.Name
+    
+    ' Limpiar columnas A, B y C (eliminar datos anteriores si los hay, excluyendo encabezados)
+    ws.Range("A2:C" & ws.Rows.count).ClearContents
+    ws.Range("A2:C" & ws.Rows.count).Font.Bold = False ' Quitar el formato negrita
+    
+    i = 2 ' Comenzar desde la fila 2
+    
+    ' Recorrer todos los archivos en la carpeta y listar sus nombres en la columna A
+    For Each objFile In objFolder.Files
+        ' Obtener el nombre del archivo sin la extensión
+        fileName = objFile.Name
+        If InStrRev(fileName, ".") > 0 Then
+            fileName = Left(fileName, InStrRev(fileName, ".") - 1)
+        End If
+        
+        ws.Cells(i, 1).Value = fileName  ' Escribir el nombre sin extensión en la columna A
+        
+        ' Puedes agregar más información del archivo en la columna B si lo deseas
+        ' Por ejemplo: ws.Cells(i, 2).Value = objFile.Size
+        
+        i = i + 1
+    Next objFile
+    
+    ' Limpiar memoria
+    Set objFSO = Nothing
+    Set objFolder = Nothing
+    
+    MsgBox "Se ha completado la lista de nombres de archivos.", vbInformation
+    Exit Sub
+    
+ErrorHandler:
+    MsgBox "Se produjo un error: " & Err.Description, vbCritical
+    Set objFSO = Nothing
+    Set objFolder = Nothing
+End Sub

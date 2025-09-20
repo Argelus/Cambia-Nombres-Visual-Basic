@@ -1,0 +1,92 @@
+Sub CambiarNombreArchivosOptimizado()
+    Dim objFSO As Object
+    Dim ws As Worksheet
+    Dim i As Long
+    Dim nuevaRuta As String
+    Dim nombreArchivo As String
+    Dim nuevoNombre As String
+    Dim extension As String
+    Dim arrArchivos() As Variant
+    Dim progreso As Long
+    Dim ultimaFila As Long
+    
+    On Error GoTo ErrorHandler
+    
+    Application.DisplayAlerts = False
+    
+    ' Seleccionar una carpeta usando el cuadro de diálogo
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .Title = "Selecciona una carpeta"
+        .AllowMultiSelect = False
+        If .Show = -1 Then
+            nuevaRuta = .SelectedItems(1)
+            ' Asegurarse de que la ruta no termine con una barra invertida
+            If Right(nuevaRuta, 1) = "\" Then nuevaRuta = Left(nuevaRuta, Len(nuevaRuta) - 1)
+        Else
+            Exit Sub
+        End If
+    End With
+    
+    Set objFSO = CreateObject("Scripting.FileSystemObject")
+    Set ws = ThisWorkbook.ActiveSheet
+    
+    ' Validar si hay datos en la hoja
+    ultimaFila = ws.Cells(ws.Rows.count, "A").End(xlUp).Row
+    If ultimaFila < 2 Then
+        MsgBox "No hay datos para procesar.", vbExclamation
+        GoTo CleanUp
+    End If
+    
+    ' Almacenar nombres de archivo y nuevos nombres en una matriz
+    ReDim arrArchivos(2 To ultimaFila, 1 To 2)
+    
+    For i = 2 To UBound(arrArchivos)
+        nombreArchivo = ws.Cells(i, 1).Value
+        nuevoNombre = ws.Cells(i, 2).Value
+        
+        If Len(nuevoNombre) > 0 And objFSO.FileExists(nuevaRuta & "\" & nombreArchivo & ".pdf") Then
+            extension = objFSO.GetExtensionName(nuevaRuta & "\" & nombreArchivo & ".pdf")
+            ws.Cells(i, 4).Value = extension
+            
+            If Not LCase(Right(nuevoNombre, Len(extension))) = LCase(extension) Then
+                nuevoNombre = nuevoNombre & "." & extension
+            End If
+            
+            arrArchivos(i, 1) = nuevaRuta & "\" & nombreArchivo & ".pdf"
+            arrArchivos(i, 2) = nuevaRuta & "\" & nuevoNombre
+        End If
+    Next i
+    
+    progreso = 0
+    For i = 2 To UBound(arrArchivos)
+        If arrArchivos(i, 1) <> "" And arrArchivos(i, 2) <> "" Then
+            On Error Resume Next
+            objFSO.MoveFile arrArchivos(i, 1), arrArchivos(i, 2)
+            If Err.Number <> 0 Then
+                MsgBox "Error moviendo el archivo " & arrArchivos(i, 1) & " a " & arrArchivos(i, 2) & ": " & Err.Description, vbCritical
+                Err.Clear
+            End If
+            On Error GoTo ErrorHandler
+            progreso = progreso + 1
+            Application.StatusBar = "Procesando archivo " & progreso & " de " & UBound(arrArchivos)
+        End If
+    Next i
+    
+    ws.Range("D:D").ClearContents
+    
+CleanUp:
+    Application.StatusBar = False
+    Application.DisplayAlerts = True
+    Set objFSO = Nothing
+    
+    If Not Err.Number <> 0 Then
+        MsgBox "Los archivos han sido renombrados.", vbInformation
+    End If
+    
+    Exit Sub
+    
+ErrorHandler:
+    MsgBox "Se produjo un error: " & Err.Description, vbCritical
+    Resume CleanUp
+End Sub
+
